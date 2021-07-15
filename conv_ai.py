@@ -1,3 +1,4 @@
+import tensorflow as tf
 import tensorflow_datasets as tfds
 dmlab = tfds.load("dmlab", as_supervised=True, shuffle_files=True)
 
