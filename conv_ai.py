@@ -42,8 +42,8 @@ model=Sequential(
 
         layers.GlobalAveragePooling2D(),
         layers.Dense(4000), 
-        layers.Dropout(0.3),
-
+        # layers.Dropout(0.3),
+        layers.Dropout(0.5),
         layers.Dense(6)
         ]
 )
