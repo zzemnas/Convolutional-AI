@@ -1,5 +1,8 @@
 import tensorflow as tf
 import tensorflow_datasets as tfds
+import numpy
+from tf_explain.core.integrated_gradients import IntegratedGradients
+
 dmlab = tfds.load("dmlab", as_supervised=True, shuffle_files=True)
 
 def preprocess(image, label):
@@ -12,7 +15,7 @@ def augment(image, label):
     return image, label
  
 dmlab_train = dmlab['train'].shuffle(1000).batch(32).map(preprocess).map(augment).prefetch(tf.data.experimental.AUTOTUNE)
-# pipeline
+print("Data Pipeline setup ended")
 
 from tensorflow.keras import layers, activations, applications
 from tensorflow.keras.models import Sequential
@@ -50,7 +53,7 @@ model=Sequential(
 
 from tensorflow.keras import losses, optimizers, metrics, callbacks
 
-odel.compile(loss=losses.SparseCategoricalCrossentropy(from_logits=True),
+model.compile(loss=losses.SparseCategoricalCrossentropy(from_logits=True),
               optimizer=optimizers.Adam(),
               metrics=[metrics.SparseCategoricalAccuracy()])
 
@@ -58,11 +61,8 @@ model.fit(dmlab_train, epochs=5, callbacks=[tb_callback])
 
 # integrated gradients interpretation
 
-pip install tf-explain
-import numpy
-from tf_explain.core.integrated_gradients import IntegratedGradients
+# pip install tf-explain
 dmlab_test = dmlab['test'].map(preprocess)
-
 image, label = next(iter(dmlab_test))
 
 image=tf.reshape(image,(1,360,480,3))
