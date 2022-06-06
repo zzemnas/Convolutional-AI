@@ -1,6 +1,15 @@
 import tensorflow as tf
 import tensorflow_datasets as tfds
+
+import numpy
+from tf_explain.core.integrated_gradients import IntegratedGradients
+import matplotlib.pyplot as plt
+
 dmlab = tfds.load("dmlab", as_supervised=True, shuffle_files=True)
+dmlab_train = dmlab['train'].shuffle(1000).batch(32).map(preprocess).map(augment).prefetch(tf.data.experimental.AUTOTUNE)
+dmlab_test = dmlab['test'].skip(2000).take(2000).batch(32).map(preprocess).prefetch(tf.data.experimental.AUTOTUNE)
+dmlab_val = dmlab['validation'].take(2000).batch(32).map(preprocess).prefetch(tf.data.experimental.AUTOTUNE)
+print(" == Data Pipeline setup ended == ")
 
 def preprocess(image, label):
     image = tf.cast(image, tf.float32) / 255.0
@@ -10,12 +19,6 @@ def augment(image, label):
     image = tf.image.random_brightness(image, 0.1)
     image = tf.image.random_hue(image, 0.1)
     return image, label
- 
-dmlab_train = dmlab['train'].shuffle(1000).batch(32).map(preprocess).map(augment).prefetch(tf.data.experimental.AUTOTUNE)
-# pipeline
-
-from tensorflow.keras import layers, activations, applications
-from tensorflow.keras.models import Sequential
 
 model=Sequential(
     layers=[
@@ -48,20 +51,23 @@ model=Sequential(
         ]
 )
 
-from tensorflow.keras import losses, optimizers, metrics, callbacks
+print("== Model definition ended ==")
+print("== Starting Training session ==")
 
-odel.compile(loss=losses.SparseCategoricalCrossentropy(from_logits=True),
-              optimizer=optimizers.Adam(),
-              metrics=[metrics.SparseCategoricalAccuracy()])
+callbacks = [
+             callbacks.EarlyStopping(monitor='val_sparse_categorical_accuracy', patience=3, restore_best_weights=True),
+             callbacks.TerminateOnNaN()
+            ]
+            
+model.compile(loss=losses.SparseCategoricalCrossentropy(from_logits=True),
+              optimizer=optimizers.Adam(), metrics=[metrics.SparseCategoricalAccuracy()])
 
-model.fit(dmlab_train, epochs=5, callbacks=[tb_callback])
+model.fit(dmlab_train, epochs=5, validation_data=dmlab_val, callbacks=callbacks)
+model.evaluate(dmlab_test)
+
+print("== Training session ended ==")
 
 # integrated gradients interpretation
-
-pip install tf-explain
-import numpy
-from tf_explain.core.integrated_gradients import IntegratedGradients
-dmlab_test = dmlab['test'].map(preprocess)
 
 image, label = next(iter(dmlab_test))
 
@@ -70,14 +76,11 @@ tf.nn.softmax(model.predict(image)).numpy()
 
 max_lab = numpy.argmax(tf.nn.softmax(model.predict(image)).numpy())
 # optimal label according to softmax
-
 max_lab
 label.numpy()
 explainer = IntegratedGradients()
 grid_max = explainer.explain((image, None), model, class_index=max_lab, n_steps=100)
-import matplotlib.pyplot as plt
+
 plt.imshow(image[0,:,:,:])
 # the image
 plt.imshow(grid_max)
-
-
